@@ -173,6 +173,58 @@
             width: 100px;  /* Set the width of all input elements of type number */
         }
 
+        /* Expand Canvas Button Styles */
+        #expand-canvas-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px 0;
+            transition: background-color 0.3s;
+        }
+
+        #expand-canvas-button:hover {
+            background-color: #218838;
+        }
+
+        #expand-canvas-button:active {
+            background-color: #1e7e34;
+        }
+
+        /* Expanded Canvas Styles */
+        .canvas-expanded #main-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            background-color: #f0f0f0;
+        }
+
+        .canvas-expanded #horizontalbar,
+        .canvas-expanded #consolebar {
+            display: none;
+        }
+
+        .canvas-expanded #verticalbar {
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .canvas-expanded #webgpuCanvas {
+            width: 100% !important;
+            height: 80vh !important;
+            max-width: none !important;
+            margin: 0 auto;
+            display: block;
+        }
+
 
     </style>
 
@@ -1417,6 +1469,11 @@
             <div class="window-content">
                 <canvas id="webgpuCanvas"></canvas>
                 <div id="tooltip" style="position: absolute; display: none;"></div>
+                <br />
+                <!-- Full Width Canvas Button -->
+                <div style="text-align: center;">
+                    <button id="expand-canvas-button">📏 Expandir Canvas a Pantalla Completa</button>
+                </div>
             </div>
 
 
@@ -1490,6 +1547,73 @@
 
     <!-- Using Chart.js for simple time series plots  -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Expand Canvas Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🟢 Script de expansión cargado');
+            
+            const expandButton = document.getElementById('expand-canvas-button');
+            const canvas = document.getElementById('webgpuCanvas');
+            
+            if (!expandButton) {
+                console.error('❌ No se encontró el botón expand-canvas-button');
+                return;
+            }
+            
+            if (!canvas) {
+                console.error('❌ No se encontró el canvas webgpuCanvas');
+                return;
+            }
+            
+            console.log('✅ Botón y canvas encontrados');
+            
+            let isExpanded = false;
+
+            expandButton.addEventListener('click', function(e) {
+                console.log('🖱️ Botón clickeado, isExpanded:', isExpanded);
+                e.preventDefault();
+                
+                if (!isExpanded) {
+                    // Expandir el canvas
+                    console.log('📏 Expandiendo canvas...');
+                    document.body.classList.add('canvas-expanded');
+                    expandButton.textContent = '📐 Restaurar Tamaño Normal';
+                    isExpanded = true;
+                    
+                    // Disparar evento de redimensionamiento para que WebGPU se ajuste
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                    
+                } else {
+                    // Restaurar el canvas
+                    console.log('📐 Restaurando canvas...');
+                    document.body.classList.remove('canvas-expanded');
+                    expandButton.textContent = '📏 Expandir Canvas a Pantalla Completa';
+                    isExpanded = false;
+                    
+                    // Disparar evento de redimensionamiento para que WebGPU se ajuste
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                }
+                
+                console.log('🎯 Estado actual - isExpanded:', isExpanded, 'Clases body:', document.body.classList.toString());
+            });
+
+            // Tecla ESC para salir del modo expandido
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && isExpanded) {
+                    console.log('⌨️ ESC presionado, restaurando...');
+                    expandButton.click();
+                }
+            });
+            
+            // Verificación adicional
+            console.log('🔧 Event listener agregado al botón');
+        });
+    </script>
 
     <!-- Wave solution control script - everything runs from this -->
     <script type="module" src="js/main.js"></script>
