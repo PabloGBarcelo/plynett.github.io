@@ -173,6 +173,131 @@
             width: 100px;  /* Set the width of all input elements of type number */
         }
 
+        /* Expand Canvas Button Styles */
+        #expand-canvas-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px 0;
+            transition: background-color 0.3s;
+        }
+
+        #expand-canvas-button:hover {
+            background-color: #218838;
+        }
+
+        #expand-canvas-button:active {
+            background-color: #1e7e34;
+        }
+
+        /* Expanded Canvas Styles */
+        .canvas-expanded #main-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            background-color: #f0f0f0;
+        }
+
+        /* Floating panels in expanded mode */
+        .canvas-expanded #horizontalbar {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            width: 350px;
+            max-height: 80vh;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .canvas-expanded #consolebar {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 350px;
+            max-height: 80vh;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(5px);
+            display: block !important;
+        }
+
+        /* Collapsed state for floating panels */
+        .canvas-expanded #horizontalbar.collapsed {
+            transform: translateX(-300px);
+        }
+
+        .canvas-expanded #consolebar.collapsed {
+            transform: translateX(300px);
+        }
+
+        /* Toggle buttons for floating panels */
+        .floating-panel-toggle {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 5px;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1002;
+            transition: background-color 0.3s;
+        }
+
+        .floating-panel-toggle:hover {
+            background-color: #0056b3;
+        }
+
+        .floating-panel-toggle.left-panel {
+            right: -25px;
+        }
+
+        .floating-panel-toggle.right-panel {
+            left: -25px;
+            background-color: #28a745;
+            border-radius: 5px 0 0 5px;
+        }
+
+        .floating-panel-toggle.right-panel:hover {
+            background-color: #218838;
+        }
+
+        .canvas-expanded #verticalbar {
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .canvas-expanded #webgpuCanvas {
+            width: 100% !important;
+            height: 80vh !important;
+            max-width: none !important;
+            margin: 0 auto;
+            display: block;
+        }
+
 
     </style>
 
@@ -1391,6 +1516,11 @@
             <div class="window-content">
                 <canvas id="webgpuCanvas"></canvas>
                 <div id="tooltip" style="position: absolute; display: none;"></div>
+                <br />
+                <!-- Full Width Canvas Button -->
+                <div style="text-align: center;">
+                    <button id="expand-canvas-button">📏 Expand Canvas to Full Screen</button>
+                </div>
             </div>
 
 
@@ -1463,6 +1593,136 @@
 
     <!-- Using Chart.js for simple time series plots  -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Expand Canvas Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🟢 Expansion script loaded');
+            
+            const expandButton = document.getElementById('expand-canvas-button');
+            const canvas = document.getElementById('webgpuCanvas');
+            const horizontalbar = document.getElementById('horizontalbar');
+            const consolebar = document.getElementById('consolebar');
+            
+            if (!expandButton) {
+                console.error('❌ expand-canvas-button not found');
+                return;
+            }
+            
+            if (!canvas) {
+                console.error('❌ webgpuCanvas not found');
+                return;
+            }
+            
+            console.log('✅ Button and canvas found');
+            
+            let isExpanded = false;
+
+            // Function to create toggle buttons for floating panels
+            function createToggleButtons() {
+                // Button for left panel
+                const leftToggle = document.createElement('button');
+                leftToggle.className = 'floating-panel-toggle left-panel';
+                leftToggle.innerHTML = '◀';
+                leftToggle.title = 'Show/Hide Controls';
+                horizontalbar.appendChild(leftToggle);
+
+                // Button for right panel (console)
+                const rightToggle = document.createElement('button');
+                rightToggle.className = 'floating-panel-toggle right-panel';
+                rightToggle.innerHTML = '▶';
+                rightToggle.title = 'Show/Hide Console';
+                consolebar.appendChild(rightToggle);
+
+                // Event listeners for toggles
+                leftToggle.addEventListener('click', function() {
+                    horizontalbar.classList.toggle('collapsed');
+                    leftToggle.innerHTML = horizontalbar.classList.contains('collapsed') ? '▶' : '◀';
+                });
+
+                rightToggle.addEventListener('click', function() {
+                    consolebar.classList.toggle('collapsed');
+                    rightToggle.innerHTML = consolebar.classList.contains('collapsed') ? '◀' : '▶';
+                });
+            }
+
+            expandButton.addEventListener('click', function(e) {
+                console.log('🖱️ Button clicked, isExpanded:', isExpanded);
+                e.preventDefault();
+                
+                if (!isExpanded) {
+                    // Expand canvas
+                    console.log('📏 Expanding canvas...');
+                    document.body.classList.add('canvas-expanded');
+                    expandButton.textContent = '📐 Restore Normal Size';
+                    isExpanded = true;
+                    
+                    // Create toggle buttons for floating panels
+                    createToggleButtons();
+                    
+                    // Trigger resize event for WebGPU adjustment
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                    
+                } else {
+                    // Restore canvas
+                    console.log('📐 Restoring canvas...');
+                    document.body.classList.remove('canvas-expanded');
+                    expandButton.textContent = '📏 Expand Canvas to Full Screen';
+                    isExpanded = false;
+                    
+                    // Remove collapsed classes and toggle buttons
+                    horizontalbar.classList.remove('collapsed');
+                    consolebar.classList.remove('collapsed');
+                    
+                    // Remove toggle buttons
+                    const toggleButtons = document.querySelectorAll('.floating-panel-toggle');
+                    toggleButtons.forEach(btn => btn.remove());
+                    
+                    // Trigger resize event for WebGPU adjustment
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                }
+                
+                console.log('🎯 Current state - isExpanded:', isExpanded, 'Body classes:', document.body.classList.toString());
+            });
+
+            // ESC key to exit expanded mode
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && isExpanded) {
+                    console.log('⌨️ ESC pressed, restoring...');
+                    expandButton.click();
+                }
+            });
+
+            // Hotkeys for panel toggle in expanded mode
+            document.addEventListener('keydown', function(e) {
+                if (isExpanded) {
+                    if (e.key === '1' && e.ctrlKey) { // Ctrl+1 for left panel
+                        e.preventDefault();
+                        horizontalbar.classList.toggle('collapsed');
+                        const leftToggle = horizontalbar.querySelector('.left-panel');
+                        if (leftToggle) {
+                            leftToggle.innerHTML = horizontalbar.classList.contains('collapsed') ? '▶' : '◀';
+                        }
+                    }
+                    if (e.key === '2' && e.ctrlKey) { // Ctrl+2 for right panel
+                        e.preventDefault();
+                        consolebar.classList.toggle('collapsed');
+                        const rightToggle = consolebar.querySelector('.right-panel');
+                        if (rightToggle) {
+                            rightToggle.innerHTML = consolebar.classList.contains('collapsed') ? '◀' : '▶';
+                        }
+                    }
+                }
+            });
+            
+            // Additional verification
+            console.log('🔧 Event listener added to button');
+        });
+    </script>
 
     <!-- Wave solution control script - everything runs from this -->
     <script type="module" src="js/main.js"></script>
