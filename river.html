@@ -1760,8 +1760,6 @@
     <!-- Expand Canvas Functionality -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🟢 Expansion script loaded');
-            
             const expandButton = document.getElementById('expand-canvas-button');
             const canvas = document.getElementById('webgpuCanvas');
             const horizontalbar = document.getElementById('horizontalbar');
@@ -1776,9 +1774,7 @@
                 console.error('❌ webgpuCanvas not found');
                 return;
             }
-            
-            console.log('✅ Button and canvas found');
-            
+                        
             let isExpanded = false;
 
             // Function to make windows draggable
@@ -1974,16 +1970,10 @@
 
             // Function to setup floating panels (for both modes)
             function setupFloatingPanels() {
-                console.log('🏗️ Setting up floating panels...');
                 const horizontalbar = document.getElementById('horizontalbar');
-                const consolebar = document.getElementById('consolebar');
-                console.log('📊 horizontalbar found:', !!horizontalbar);
-                console.log('📟 consolebar found:', !!consolebar);
-                
+                const consolebar = document.getElementById('consolebar');                
                 createDraggableHeaders();
                 createToggleButtons();
-                
-                console.log('✅ Floating panels setup complete');
             }
 
             // Function to restore original layout
@@ -2026,12 +2016,10 @@
             }
 
             expandButton.addEventListener('click', function(e) {
-                console.log('🖱️ Button clicked, isExpanded:', isExpanded);
                 e.preventDefault();
                 
                 if (!isExpanded) {
                     // Expand canvas
-                    console.log('📏 Expanding canvas...');
                     document.body.classList.add('canvas-expanded');
                     expandButton.textContent = '📐 Restore Normal Size';
                     isExpanded = true;
@@ -2046,7 +2034,6 @@
                     
                 } else {
                     // Restore canvas
-                    console.log('📐 Restoring canvas...');
                     document.body.classList.remove('canvas-expanded');
                     expandButton.textContent = '📏 Expand Canvas to Full Screen';
                     isExpanded = false;
@@ -2059,19 +2046,12 @@
                         window.dispatchEvent(new Event('resize'));
                     }, 100);
                 }
-                
-                console.log('🎯 Current state - isExpanded:', isExpanded, 'Body classes:', document.body.classList.toString());
             });
 
             // Handle native fullscreen changes
             document.addEventListener('fullscreenchange', function() {
-                console.log('🔄 Fullscreen change detected');
-                console.log('📱 Fullscreen element:', document.fullscreenElement);
                 
                 if (document.fullscreenElement) {
-                    console.log('🔳 Entered native fullscreen');
-                    console.log('📊 horizontalbar element:', document.getElementById('horizontalbar'));
-                    console.log('📟 consolebar element:', document.getElementById('consolebar'));
                     setupFloatingPanels();
                     
                     // Force show panels in fullscreen
@@ -2079,14 +2059,11 @@
                     const consolebar = document.getElementById('consolebar');
                     if (horizontalbar) {
                         horizontalbar.style.display = 'block';
-                        console.log('👈 horizontalbar forced visible');
                     }
                     if (consolebar) {
                         consolebar.style.display = 'block';
-                        console.log('👉 consolebar forced visible');
                     }
                 } else {
-                    console.log('🔲 Exited native fullscreen');
                     if (!isExpanded) {
                         restoreOriginalLayout();
                     }
@@ -2096,7 +2073,6 @@
             // ESC key to exit expanded mode
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && isExpanded) {
-                    console.log('⌨️ ESC pressed, restoring...');
                     expandButton.click();
                 }
             });
@@ -2126,29 +2102,16 @@
             // Fullscreen button functionality
             const fullscreenButton = document.getElementById('fullscreen-button');
             if (fullscreenButton) {
-                fullscreenButton.addEventListener('click', function() {
-                    console.log('🖱️ Fullscreen button clicked');
-                    
+                fullscreenButton.addEventListener('click', function() {                    
                     if (!document.fullscreenElement) {
                         // Enter fullscreen
-                        document.body.requestFullscreen().then(() => {
-                            console.log('🔳 Fullscreen activated');
-                        }).catch(err => {
-                            console.error('❌ Error entering fullscreen:', err);
-                        });
+                        document.body.requestFullscreen();
                     } else {
                         // Exit fullscreen
-                        document.exitFullscreen().then(() => {
-                            console.log('🔲 Fullscreen deactivated');
-                        }).catch(err => {
-                            console.error('❌ Error exiting fullscreen:', err);
-                        });
+                        document.exitFullscreen();
                     }
                 });
             }
-            
-            // Additional verification
-            console.log('🔧 Event listener added to button');
         });
     </script>
 
