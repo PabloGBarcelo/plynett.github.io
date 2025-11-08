@@ -219,7 +219,6 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             z-index: 1001;
             overflow-y: auto;
-            transition: transform 0.3s ease;
             backdrop-filter: blur(5px);
         }
 
@@ -235,18 +234,17 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             z-index: 1001;
             overflow-y: auto;
-            transition: transform 0.3s ease;
             backdrop-filter: blur(5px);
             display: block !important;
         }
 
         /* Collapsed state for floating panels */
         .canvas-expanded #horizontalbar.collapsed {
-            transform: translateX(-300px);
+            left: -300px !important;
         }
 
         .canvas-expanded #consolebar.collapsed {
-            transform: translateX(300px);
+            right: -300px !important;
         }
 
         /* Toggle buttons for floating panels */
@@ -296,6 +294,116 @@
             max-width: none !important;
             margin: 0 auto;
             display: block;
+        }
+
+        /* Floating panels also in native fullscreen mode */
+        body:fullscreen #horizontalbar,
+        body:fullscreen #consolebar {
+            position: fixed;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 10001;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(5px);
+            display: block !important;
+            resize: both;
+            min-width: 250px;
+            min-height: 200px;
+            max-width: 500px;
+            max-height: 90vh;
+        }
+
+        body:fullscreen #horizontalbar {
+            top: 10px;
+            left: 10px;
+            width: 350px;
+            border: 2px solid #007bff;
+        }
+
+        body:fullscreen #consolebar {
+            top: 10px;
+            right: 10px;
+            width: 350px;
+            border: 2px solid #28a745;
+        }
+
+        /* Draggable window header */
+        .draggable-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 8px 12px;
+            cursor: move;
+            user-select: none;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .draggable-header.console {
+            background: linear-gradient(135deg, #28a745, #218838);
+        }
+
+        /* Window body with proper spacing */
+        .window-body {
+            padding: 10px;
+            max-height: calc(80vh - 50px);
+            overflow-y: auto;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .window-control-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .window-control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .window-control-btn.close:hover {
+            background: #dc3545;
+        }
+
+        /* Window content when rolled up */
+        .window-rolled-up .window-body {
+            display: none !important;
+        }
+
+        .window-rolled-up {
+            height: auto !important;
+            min-height: auto !important;
+        }
+
+        /* Collapsed state for native fullscreen */
+        body:fullscreen #horizontalbar.collapsed {
+            transform: translateX(-300px);
+        }
+
+        body:fullscreen #consolebar.collapsed {
+            transform: translateX(300px);
         }
 
 
@@ -1618,6 +1726,169 @@
             
             let isExpanded = false;
 
+            // Function to make windows draggable
+            function makeDraggable(element, handle) {
+                let isDragging = false;
+                let currentX;
+                let currentY;
+                let initialX;
+                let initialY;
+                let xOffset = 0;
+                let yOffset = 0;
+
+                // Reset CSS positioning to allow transform to work properly
+                const resetPosition = () => {
+                    if (element.id === 'consolebar') {
+                        element.style.right = 'auto';
+                        element.style.left = window.innerWidth - element.offsetWidth - 10 + 'px';
+                    } else if (element.id === 'horizontalbar') {
+                        element.style.left = '10px';
+                    }
+                    element.style.top = '10px';
+                };
+
+                handle.addEventListener('mousedown', dragStart);
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', dragEnd);
+
+                function dragStart(e) {
+                    if (!element.style.transform) {
+                        resetPosition();
+                    }
+                    
+                    initialX = e.clientX - xOffset;
+                    initialY = e.clientY - yOffset;
+
+                    if (e.target === handle || handle.contains(e.target)) {
+                        isDragging = true;
+                        handle.style.cursor = 'grabbing';
+                    }
+                }
+
+                function drag(e) {
+                    if (isDragging) {
+                        e.preventDefault();
+                        
+                        currentX = e.clientX - initialX;
+                        currentY = e.clientY - initialY;
+
+                        xOffset = currentX;
+                        yOffset = currentY;
+
+                        // Get current position from CSS
+                        const rect = element.getBoundingClientRect();
+                        const computedStyle = getComputedStyle(element);
+                        const currentLeft = parseInt(computedStyle.left) || 0;
+                        const currentTop = parseInt(computedStyle.top) || 0;
+
+                        // Calculate final position
+                        const finalX = currentLeft + currentX;
+                        const finalY = currentTop + currentY;
+
+                        // Apply boundaries - allow some negative values but prevent completely moving off screen
+                        const minX = -element.offsetWidth + 100; // Allow most of window to go off-screen but keep 100px visible
+                        const maxX = window.innerWidth - 100; // Keep at least 100px of window visible on right
+                        const minY = 0; // Don't allow moving above top of screen
+                        const maxY = window.innerHeight - 50; // Keep header visible
+
+                        const boundedFinalX = Math.min(Math.max(finalX, minX), maxX);
+                        const boundedFinalY = Math.min(Math.max(finalY, minY), maxY);
+
+                        // Calculate the transform needed
+                        const transformX = boundedFinalX - currentLeft;
+                        const transformY = boundedFinalY - currentTop;
+
+                        element.style.transform = `translate(${transformX}px, ${transformY}px)`;
+                    }
+                }
+
+                function dragEnd(e) {
+                    if (isDragging) {
+                        // Update offsets based on current transform
+                        const transform = element.style.transform;
+                        const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+                        if (match) {
+                            xOffset = parseFloat(match[1]);
+                            yOffset = parseFloat(match[2]);
+                        }
+                    }
+                    isDragging = false;
+                    handle.style.cursor = 'move';
+                }
+            }
+
+            // Function to create draggable headers and controls
+            function createDraggableHeaders() {
+                // Create header for left panel (controls)
+                const leftHeader = document.createElement('div');
+                leftHeader.className = 'draggable-header';
+                leftHeader.innerHTML = `
+                    <span>🎛️ Controls</span>
+                    <div class="window-controls">
+                        <button class="window-control-btn roll-btn" title="Roll up/down">−</button>
+                        <button class="window-control-btn close-btn" title="Hide panel">×</button>
+                    </div>
+                `;
+                
+                // Wrap existing content
+                const leftBody = document.createElement('div');
+                leftBody.className = 'window-body';
+                while (horizontalbar.firstChild) {
+                    leftBody.appendChild(horizontalbar.firstChild);
+                }
+                
+                horizontalbar.appendChild(leftHeader);
+                horizontalbar.appendChild(leftBody);
+                
+                // Create header for right panel (console)
+                const rightHeader = document.createElement('div');
+                rightHeader.className = 'draggable-header console';
+                rightHeader.innerHTML = `
+                    <span>🖥️ Console</span>
+                    <div class="window-controls">
+                        <button class="window-control-btn roll-btn" title="Roll up/down">−</button>
+                        <button class="window-control-btn close-btn" title="Hide panel">×</button>
+                    </div>
+                `;
+                
+                // Wrap existing content
+                const rightBody = document.createElement('div');
+                rightBody.className = 'window-body';
+                while (consolebar.firstChild) {
+                    rightBody.appendChild(consolebar.firstChild);
+                }
+                
+                consolebar.appendChild(rightHeader);
+                consolebar.appendChild(rightBody);
+                
+                // Make windows draggable
+                makeDraggable(horizontalbar, leftHeader);
+                makeDraggable(consolebar, rightHeader);
+                
+                // Add event listeners for window controls
+                leftHeader.querySelector('.roll-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    horizontalbar.classList.toggle('window-rolled-up');
+                    this.textContent = horizontalbar.classList.contains('window-rolled-up') ? '+' : '−';
+                });
+                
+                leftHeader.querySelector('.close-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    horizontalbar.classList.add('collapsed');
+                });
+                
+                rightHeader.querySelector('.roll-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    consolebar.classList.toggle('window-rolled-up');
+                    this.textContent = consolebar.classList.contains('window-rolled-up') ? '+' : '−';
+                });
+                
+                rightHeader.querySelector('.close-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    consolebar.classList.add('collapsed');
+                });
+            }
+
             // Function to create toggle buttons for floating panels
             function createToggleButtons() {
                 // Button for left panel
@@ -1646,6 +1917,51 @@
                 });
             }
 
+            // Function to setup floating panels (for both modes)
+            function setupFloatingPanels() {
+                createDraggableHeaders();
+                createToggleButtons();
+            }
+
+            // Function to restore original layout
+            function restoreOriginalLayout() {
+                // Remove draggable headers and restore original content
+                const leftBody = horizontalbar.querySelector('.window-body');
+                const rightBody = consolebar.querySelector('.window-body');
+                
+                if (leftBody) {
+                    while (leftBody.firstChild) {
+                        horizontalbar.appendChild(leftBody.firstChild);
+                    }
+                    horizontalbar.querySelector('.draggable-header')?.remove();
+                    leftBody.remove();
+                }
+                
+                if (rightBody) {
+                    while (rightBody.firstChild) {
+                        consolebar.appendChild(rightBody.firstChild);
+                    }
+                    consolebar.querySelector('.draggable-header')?.remove();
+                    rightBody.remove();
+                }
+                
+                // Remove classes and toggle buttons
+                horizontalbar.classList.remove('collapsed', 'window-rolled-up');
+                consolebar.classList.remove('collapsed', 'window-rolled-up');
+                
+                // Remove toggle buttons
+                const toggleButtons = document.querySelectorAll('.floating-panel-toggle');
+                toggleButtons.forEach(btn => btn.remove());
+                
+                // Reset positions and transforms
+                horizontalbar.style.top = '';
+                horizontalbar.style.left = '';
+                horizontalbar.style.transform = '';
+                consolebar.style.top = '';
+                consolebar.style.left = '';
+                consolebar.style.transform = '';
+            }
+
             expandButton.addEventListener('click', function(e) {
                 console.log('🖱️ Button clicked, isExpanded:', isExpanded);
                 e.preventDefault();
@@ -1657,8 +1973,8 @@
                     expandButton.textContent = '📐 Restore Normal Size';
                     isExpanded = true;
                     
-                    // Create toggle buttons for floating panels
-                    createToggleButtons();
+                    // Setup floating panels
+                    setupFloatingPanels();
                     
                     // Trigger resize event for WebGPU adjustment
                     setTimeout(() => {
@@ -1672,13 +1988,8 @@
                     expandButton.textContent = '📏 Expand Canvas to Full Screen';
                     isExpanded = false;
                     
-                    // Remove collapsed classes and toggle buttons
-                    horizontalbar.classList.remove('collapsed');
-                    consolebar.classList.remove('collapsed');
-                    
-                    // Remove toggle buttons
-                    const toggleButtons = document.querySelectorAll('.floating-panel-toggle');
-                    toggleButtons.forEach(btn => btn.remove());
+                    // Restore original layout
+                    restoreOriginalLayout();
                     
                     // Trigger resize event for WebGPU adjustment
                     setTimeout(() => {
@@ -1687,6 +1998,19 @@
                 }
                 
                 console.log('🎯 Current state - isExpanded:', isExpanded, 'Body classes:', document.body.classList.toString());
+            });
+
+            // Handle native fullscreen changes
+            document.addEventListener('fullscreenchange', function() {
+                if (document.fullscreenElement) {
+                    console.log('🔳 Entered native fullscreen');
+                    setupFloatingPanels();
+                } else {
+                    console.log('🔲 Exited native fullscreen');
+                    if (!isExpanded) {
+                        restoreOriginalLayout();
+                    }
+                }
             });
 
             // ESC key to exit expanded mode
@@ -1699,7 +2023,7 @@
 
             // Hotkeys for panel toggle in expanded mode
             document.addEventListener('keydown', function(e) {
-                if (isExpanded) {
+                if (isExpanded || document.fullscreenElement) {
                     if (e.key === '1' && e.ctrlKey) { // Ctrl+1 for left panel
                         e.preventDefault();
                         horizontalbar.classList.toggle('collapsed');
