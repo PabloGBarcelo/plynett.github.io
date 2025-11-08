@@ -296,7 +296,49 @@
             display: block;
         }
 
+        /* Canvas styling for native fullscreen mode */
+        :fullscreen #webgpuCanvas,
+        body:fullscreen #webgpuCanvas {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 1000 !important;
+            background-color: #f0f0f0;
+        }
+
+        /* Show and expand the simulation window content to fill fullscreen */
+        :fullscreen #simulation-window-content,
+        body:fullscreen #simulation-window-content {
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 999 !important;
+            background-color: #f0f0f0;
+        }
+
+        /* Ensure only the canvas and floating panels are visible in fullscreen */
+        :fullscreen #webgpuCanvas,
+        :fullscreen #horizontalbar,
+        :fullscreen #consolebar,
+        body:fullscreen #webgpuCanvas,
+        body:fullscreen #horizontalbar,
+        body:fullscreen #consolebar {
+            display: block !important;
+        }
+
         /* Floating panels also in native fullscreen mode */
+        :fullscreen #horizontalbar,
+        :fullscreen #consolebar,
         body:fullscreen #horizontalbar,
         body:fullscreen #consolebar {
             position: fixed;
@@ -305,7 +347,6 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             z-index: 10001;
             overflow-y: auto;
-            transition: transform 0.3s ease;
             backdrop-filter: blur(5px);
             display: block !important;
             resize: both;
@@ -315,6 +356,7 @@
             max-height: 90vh;
         }
 
+        :fullscreen #horizontalbar,
         body:fullscreen #horizontalbar {
             top: 10px;
             left: 10px;
@@ -322,9 +364,10 @@
             border: 2px solid #007bff;
         }
 
+        :fullscreen #consolebar,
         body:fullscreen #consolebar {
             top: 10px;
-            right: 10px;
+            left: calc(100vw - 360px);
             width: 350px;
             border: 2px solid #28a745;
         }
@@ -398,12 +441,14 @@
         }
 
         /* Collapsed state for native fullscreen */
+        :fullscreen #horizontalbar.collapsed,
         body:fullscreen #horizontalbar.collapsed {
-            transform: translateX(-300px);
+            left: -300px !important;
         }
 
+        :fullscreen #consolebar.collapsed,
         body:fullscreen #consolebar.collapsed {
-            transform: translateX(300px);
+            left: calc(100vw + 250px) !important;
         }
 
 
@@ -1647,7 +1692,7 @@
                 <span><center>  Simulation Window  </center></span>
                 <button class="minimize-button">-</button>
             </div>            
-            <div class="window-content">
+            <div id="simulation-window-content" class="window-content">
                 <canvas id="webgpuCanvas"></canvas>
                 <div id="tooltip" style="position: absolute; display: none;"></div>
                 <br />
@@ -1946,8 +1991,12 @@
 
             // Function to setup floating panels (for both modes)
             function setupFloatingPanels() {
+                const horizontalbar = document.getElementById('horizontalbar');
+                const consolebar = document.getElementById('consolebar');
+                
                 createDraggableHeaders();
                 createToggleButtons();
+                
             }
 
             // Function to restore original layout
@@ -2029,9 +2078,26 @@
 
             // Handle native fullscreen changes
             document.addEventListener('fullscreenchange', function() {
+                console.log('🔄 Fullscreen change detected');
+                console.log('📱 Fullscreen element:', document.fullscreenElement);
+                
                 if (document.fullscreenElement) {
                     console.log('🔳 Entered native fullscreen');
+                    console.log('📊 horizontalbar element:', document.getElementById('horizontalbar'));
+                    console.log('📟 consolebar element:', document.getElementById('consolebar'));
                     setupFloatingPanels();
+                    
+                    // Force show panels in fullscreen
+                    const horizontalbar = document.getElementById('horizontalbar');
+                    const consolebar = document.getElementById('consolebar');
+                    if (horizontalbar) {
+                        horizontalbar.style.display = 'block';
+                        console.log('👈 horizontalbar forced visible');
+                    }
+                    if (consolebar) {
+                        consolebar.style.display = 'block';
+                        console.log('👉 consolebar forced visible');
+                    }
                 } else {
                     console.log('🔲 Exited native fullscreen');
                     if (!isExpanded) {
@@ -2069,6 +2135,30 @@
                     }
                 }
             });
+
+            // Fullscreen button functionality
+            const fullscreenButton = document.getElementById('fullscreen-button');
+            if (fullscreenButton) {
+                fullscreenButton.addEventListener('click', function() {
+                    console.log('🖱️ Fullscreen button clicked');
+                    
+                    if (!document.fullscreenElement) {
+                        // Enter fullscreen
+                        document.body.requestFullscreen().then(() => {
+                            console.log('🔳 Fullscreen activated');
+                        }).catch(err => {
+                            console.error('❌ Error entering fullscreen:', err);
+                        });
+                    } else {
+                        // Exit fullscreen
+                        document.exitFullscreen().then(() => {
+                            console.log('🔲 Fullscreen deactivated');
+                        }).catch(err => {
+                            console.error('❌ Error exiting fullscreen:', err);
+                        });
+                    }
+                });
+            }
             
             // Additional verification
             console.log('🔧 Event listener added to button');
