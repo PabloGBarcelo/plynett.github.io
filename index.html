@@ -173,29 +173,7 @@
             width: 100px;  /* Set the width of all input elements of type number */
         }
 
-        /* Expand Canvas Button Styles */
-        #expand-canvas-button {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            margin: 5px 0;
-            transition: background-color 0.3s;
-        }
-
-        #expand-canvas-button:hover {
-            background-color: #218838;
-        }
-
-        #expand-canvas-button:active {
-            background-color: #1e7e34;
-        }
-
-        /* Expanded Canvas Styles */
+        /* Expanded Canvas Styles (kept for compatibility) */
         .canvas-expanded #main-container {
             position: fixed;
             top: 0;
@@ -222,7 +200,8 @@
             backdrop-filter: blur(5px);
         }
 
-        .canvas-expanded #consolebar {
+        /* Floating console panel by default */
+        #consolebar {
             position: fixed;
             top: 10px;
             right: 10px;
@@ -236,9 +215,21 @@
             overflow-y: auto;
             backdrop-filter: blur(5px);
             display: block !important;
+            resize: both;
+            min-width: 250px;
+            min-height: 200px;
+            max-width: 500px;
+        }
+
+        .canvas-expanded #consolebar {
+            /* Inherits from default #consolebar styles */
         }
 
         /* Collapsed state for floating panels */
+        #consolebar.collapsed {
+            right: -300px !important;
+        }
+
         .canvas-expanded #horizontalbar.collapsed {
             left: -300px !important;
         }
@@ -247,16 +238,17 @@
             right: -300px !important;
         }
 
-        /* Toggle buttons for floating panels */
+        /* Toggle button for floating console panel */
         .floating-panel-toggle {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background-color: #007bff;
+            left: -25px;
+            background-color: #28a745;
+            border-radius: 5px 0 0 5px;
             color: white;
             border: none;
             padding: 10px 5px;
-            border-radius: 0 5px 5px 0;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
@@ -265,21 +257,19 @@
         }
 
         .floating-panel-toggle:hover {
-            background-color: #0056b3;
-        }
-
-        .floating-panel-toggle.left-panel {
-            right: -25px;
-        }
-
-        .floating-panel-toggle.right-panel {
-            left: -25px;
-            background-color: #28a745;
-            border-radius: 5px 0 0 5px;
-        }
-
-        .floating-panel-toggle.right-panel:hover {
             background-color: #218838;
+        }
+
+        /* Additional styles for expanded mode */
+        .canvas-expanded .floating-panel-toggle.left-panel {
+            right: -25px;
+            left: auto;
+            background-color: #007bff;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .canvas-expanded .floating-panel-toggle.left-panel:hover {
+            background-color: #0056b3;
         }
 
         .canvas-expanded #verticalbar {
@@ -1695,11 +1685,6 @@
             <div id="simulation-window-content" class="window-content">
                 <canvas id="webgpuCanvas"></canvas>
                 <div id="tooltip" style="position: absolute; display: none;"></div>
-                <br />
-                <!-- Full Width Canvas Button -->
-                <div style="text-align: center;">
-                    <button id="expand-canvas-button">📏 Expand Canvas to Full Screen</button>
-                </div>
             </div>
 
 
@@ -1774,27 +1759,177 @@
     <!-- Using Chart.js for simple time series plots  -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Expand Canvas Functionality -->
+    <!-- Draggable Console Panel Functionality -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {            
-            const expandButton = document.getElementById('expand-canvas-button');
-            const canvas = document.getElementById('webgpuCanvas');
-            const horizontalbar = document.getElementById('horizontalbar');
             const consolebar = document.getElementById('consolebar');
             
-            if (!expandButton) {
-                console.error('❌ expand-canvas-button not found');
+            if (!consolebar) {
+                console.error('❌ consolebar not found');
                 return;
             }
-            
-            if (!canvas) {
-                console.error('❌ webgpuCanvas not found');
-                return;
-            }
-                        
-            let isExpanded = false;
 
             // Function to make windows draggable
+            function makeDraggable(element, handle) {
+                let isDragging = false;
+                let currentX;
+                let currentY;
+                let initialX;
+                let initialY;
+                let xOffset = 0;
+                let yOffset = 0;
+
+                // Reset CSS positioning to allow transform to work properly
+                const resetPosition = () => {
+                    element.style.right = 'auto';
+                    element.style.left = window.innerWidth - element.offsetWidth - 10 + 'px';
+                    element.style.top = '10px';
+                };
+
+                handle.addEventListener('mousedown', dragStart);
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', dragEnd);
+
+                function dragStart(e) {
+                    if (!element.style.transform) {
+                        resetPosition();
+                    }
+                    
+                    initialX = e.clientX - xOffset;
+                    initialY = e.clientY - yOffset;
+
+                    if (e.target === handle || handle.contains(e.target)) {
+                        isDragging = true;
+                        handle.style.cursor = 'grabbing';
+                    }
+                }
+
+                function drag(e) {
+                    if (isDragging) {
+                        e.preventDefault();
+                        
+                        currentX = e.clientX - initialX;
+                        currentY = e.clientY - initialY;
+
+                        xOffset = currentX;
+                        yOffset = currentY;
+
+                        // Get current position from CSS
+                        const rect = element.getBoundingClientRect();
+                        const computedStyle = getComputedStyle(element);
+                        const currentLeft = parseInt(computedStyle.left) || 0;
+                        const currentTop = parseInt(computedStyle.top) || 0;
+
+                        // Calculate final position
+                        const finalX = currentLeft + currentX;
+                        const finalY = currentTop + currentY;
+
+                        // Apply boundaries - allow some negative values but prevent completely moving off screen
+                        const minX = -element.offsetWidth + 100; // Allow most of window to go off-screen but keep 100px visible
+                        const maxX = window.innerWidth - 100; // Keep at least 100px of window visible on right
+                        const minY = 0; // Don't allow moving above top of screen
+                        const maxY = window.innerHeight - 50; // Keep header visible
+
+                        const boundedFinalX = Math.min(Math.max(finalX, minX), maxX);
+                        const boundedFinalY = Math.min(Math.max(finalY, minY), maxY);
+
+                        // Calculate the transform needed
+                        const transformX = boundedFinalX - currentLeft;
+                        const transformY = boundedFinalY - currentTop;
+
+                        element.style.transform = `translate(${transformX}px, ${transformY}px)`;
+                    }
+                }
+
+                function dragEnd(e) {
+                    if (isDragging) {
+                        // Update offsets based on current transform
+                        const transform = element.style.transform;
+                        const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+                        if (match) {
+                            xOffset = parseFloat(match[1]);
+                            yOffset = parseFloat(match[2]);
+                        }
+                    }
+                    isDragging = false;
+                    handle.style.cursor = 'move';
+                }
+            }
+
+            // Function to create draggable header for console panel
+            function createConsoleDraggableHeader() {
+                // Create header for console panel
+                const consoleHeader = document.createElement('div');
+                consoleHeader.className = 'draggable-header console';
+                consoleHeader.innerHTML = `
+                    <span>🖥️ Console</span>
+                    <div class="window-controls">
+                        <button class="window-control-btn roll-btn" title="Roll up/down">−</button>
+                        <button class="window-control-btn close-btn" title="Hide panel">×</button>
+                    </div>
+                `;
+                
+                // Wrap existing content
+                const consoleBody = document.createElement('div');
+                consoleBody.className = 'window-body';
+                while (consolebar.firstChild) {
+                    consoleBody.appendChild(consolebar.firstChild);
+                }
+                
+                consolebar.appendChild(consoleHeader);
+                consolebar.appendChild(consoleBody);
+                
+                // Make console window draggable
+                makeDraggable(consolebar, consoleHeader);
+                
+                // Add event listeners for window controls
+                consoleHeader.querySelector('.roll-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    consolebar.classList.toggle('window-rolled-up');
+                    this.textContent = consolebar.classList.contains('window-rolled-up') ? '+' : '−';
+                });
+                
+                consoleHeader.querySelector('.close-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    consolebar.classList.add('collapsed');
+                });
+            }
+
+            // Function to create toggle button for console panel
+            function createConsoleToggleButton() {
+                // Button for console panel
+                const consoleToggle = document.createElement('button');
+                consoleToggle.className = 'floating-panel-toggle';
+                consoleToggle.innerHTML = '▶';
+                consoleToggle.title = 'Show/Hide Console';
+                consolebar.appendChild(consoleToggle);
+
+                // Event listener for toggle
+                consoleToggle.addEventListener('click', function() {
+                    consolebar.classList.toggle('collapsed');
+                    consoleToggle.innerHTML = consolebar.classList.contains('collapsed') ? '◀' : '▶';
+                });
+            }
+
+            // Initialize draggable console panel on page load
+            createConsoleDraggableHeader();
+            createConsoleToggleButton();
+            
+            console.log('✅ Draggable console panel initialized');
+        });
+    </script>
+
+    <!-- Legacy Expand Canvas Support (for compatibility with existing fullscreen features) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const horizontalbar = document.getElementById('horizontalbar');
+            
+            if (!canvas || !horizontalbar) {
+                console.error('❌ Required elements not found');
+                return;
+            }
+
+            // Function to make windows draggable (for expanded mode)
             function makeDraggable(element, handle) {
                 let isDragging = false;
                 let currentX;
@@ -2034,41 +2169,7 @@
                 consolebar.style.transform = '';
             }
 
-            expandButton.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                if (!isExpanded) {
-                    // Expand canvas
-                    document.body.classList.add('canvas-expanded');
-                    expandButton.textContent = '📐 Restore Normal Size';
-                    isExpanded = true;
-                    
-                    // Setup floating panels
-                    setupFloatingPanels();
-                    
-                    // Trigger resize event for WebGPU adjustment
-                    setTimeout(() => {
-                        window.dispatchEvent(new Event('resize'));
-                    }, 100);
-                    
-                } else {
-                    // Restore canvas
-                    document.body.classList.remove('canvas-expanded');
-                    expandButton.textContent = '📏 Expand Canvas to Full Screen';
-                    isExpanded = false;
-                    
-                    // Restore original layout
-                    restoreOriginalLayout();
-                    
-                    // Trigger resize event for WebGPU adjustment
-                    setTimeout(() => {
-                        window.dispatchEvent(new Event('resize'));
-                    }, 100);
-                }
-                
-            });
-
-            // Handle native fullscreen changes
+            // Handle native fullscreen changes (browser fullscreen API)
             document.addEventListener('fullscreenchange', function() {
                 if (document.fullscreenElement) {
                     setupFloatingPanels();
@@ -2083,23 +2184,13 @@
                         consolebar.style.display = 'block';
                     }
                 } else {
-                    if (!isExpanded) {
-                        restoreOriginalLayout();
-                    }
+                    restoreOriginalLayout();
                 }
             });
 
-            // ESC key to exit expanded mode
+            // Hotkeys for panel toggle in fullscreen mode
             document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && isExpanded) {
-                    console.log('⌨️ ESC pressed, restoring...');
-                    expandButton.click();
-                }
-            });
-
-            // Hotkeys for panel toggle in expanded mode
-            document.addEventListener('keydown', function(e) {
-                if (isExpanded || document.fullscreenElement) {
+                if (document.fullscreenElement) {
                     if (e.key === '1' && e.ctrlKey) { // Ctrl+1 for left panel
                         e.preventDefault();
                         horizontalbar.classList.toggle('collapsed');
