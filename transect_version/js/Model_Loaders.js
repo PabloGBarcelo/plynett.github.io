@@ -1,4 +1,4 @@
-import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix/esm/index.js';
+import { mat4 } from '../../externals/gl-matrix/index.js';
 
 async function loadModelDefinitions(source) {
     let config;

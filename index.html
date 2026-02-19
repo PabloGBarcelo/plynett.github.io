@@ -1758,7 +1758,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.10.1/ffmpeg.min.js" integrity="sha512-NymjIoM3BuPReK5HMHaUg6/lAqOP3d1JagbVMMHHFf2Y8+NqvNwsvVM6XSPWedpjsgtQo1Klf9o5ojErfA+w3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     doesnt work due to the need to have some external called SharedArrayBuffer, which is not allowed due to security risk by default -->
 
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) - disabled for offline use
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-RL1HPCPQDC"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
@@ -1766,13 +1766,13 @@
     gtag('js', new Date());
 
     gtag('config', 'G-RL1HPCPQDC');
-    </script>
+    </script> -->
 
-    <!-- Using gif to create animated gif  --><!-- Include gif.js from a CDN -->    
-    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+    <!-- Using gif to create animated gif  --><!-- Include gif.js locally -->    
+    <script src="externals/gif.js"></script>
 
     <!-- Using Chart.js for simple time series plots  -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="externals/chart.umd.js"></script>
 
     <!-- Expand Canvas Functionality -->
     <script>

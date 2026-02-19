@@ -31,7 +31,7 @@ import { createComputePipeline, createRenderPipeline, createRenderPipeline_verte
 import { fetchShader, runComputeShader, runCopyTextures, runComputeShader_EncStack, runCopyTextures_EncStack} from './Run_Compute_Shader.js';  // function to run shaders, works for all
 import { runTridiagSolver } from './Run_Tridiag_Solver.js';  // function to run PCR triadiag solver, works for all
 import { displayCalcConstants, displaySimStatus, displayTimeSeriesLocations, displaySlideVolume, ConsoleLogRedirection} from './display_parameters.js';  // starting point for display of simulation parameters
-import { mat4, vec3 } from 'https://cdn.jsdelivr.net/npm/gl-matrix/esm/index.js';
+import { mat4, vec3 } from '../externals/gl-matrix/index.js';
 
 // Get a reference to the HTML canvas element with the ID 'webgpuCanvas'
 const canvas = document.getElementById('webgpuCanvas');
