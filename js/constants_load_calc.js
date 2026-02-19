@@ -12,6 +12,9 @@ for (let i = 0; i < 16; i++) {
 
 // set simulation parameters to default values
 var calc_constants = {
+    // debugging parameters
+    algochanges: 0, // set to 1 to test alternative algorithm for various parts of the code
+    
     // Computational domain dimensions
     WIDTH: 800,  // Width of the computational domain.
     HEIGHT: 600,  // Height of the computational domain.
@@ -38,6 +41,7 @@ var calc_constants = {
     Theta: 2.0,  // Midmod limiter parameter. 1.0 most dissipative(upwind) to 2.0 least dissipative(centered).
     friction: 0.000,  // Dimensionless friction coefficient, or Mannings 'n', depending on isManning choice.
     isManning: 0,  // A boolean friction model value, if==1 'friction' is a Mannnigs n, otherwise it is a dimensionless friction factor (Moody).
+    vort_friction_factor: 0.0, // coefficient for vorticity-based momentum mixing/dissipation
     loadFriction: 0,  // Load friction from file when == 1
     loadetaIC: 0,  // Load initial free surface from file when == 1
     min_allowable_depth: 0.005, // min depth allowable, too large and runup accuracy is poor, too small and precision issues lead to model blowup (1/0)
@@ -265,6 +269,12 @@ var calc_constants = {
     shift_x: 0.0, // x shift of 2D plane
     shift_y: 0.0, // y shift of 2D plane
     forward: 1.0, // zoom in/out of 2D plane
+    cameraInit_user: 0, // flag to indicate user has initialized camera position
+    cameraInit_x: 0.0, // initial camera x position for 3D explorer
+    cameraInit_y: 0.0, // initial camera y position for 3D explorer
+    cameraInit_z: 0.0, // initial camera z position for 3D explorer
+    cameraInit_yaw: 0.0, // initial camera yaw for 3D explorer
+    cameraInit_pitch: 0.0, // initial camera pitch for 3D explorer
     full_screen: 0, // = 0 regular, = 1 in fullscreen
     canvas_width_ratio: 1.0, // for full screen asepct ratio correction
     canvas_height_ratio: 1.0, // for full screen asepct ratio correction
