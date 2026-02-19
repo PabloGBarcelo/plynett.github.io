@@ -3177,23 +3177,40 @@ document.addEventListener('DOMContentLoaded', function () {
         const isCanvasExpanded = document.body.classList.contains('canvas-expanded');
         
         if (document.fullscreenElement || isCanvasExpanded) {
-            const window_width = window.innerWidth;
-            const window_height = isCanvasExpanded ? window.innerHeight * 0.8 : window.innerHeight; // 80vh for expanded mode
+            const available_width = window.innerWidth;
+            const available_height = isCanvasExpanded ? window.innerHeight * 0.8 : window.innerHeight; // 80vh for expanded mode
 
             // Calculate the aspect ratio of the simulation domain
             const domain_aspect_ratio = (calc_constants.WIDTH * calc_constants.dx) / (calc_constants.HEIGHT * calc_constants.dy);
-            const window_aspect_ratio = window_width / window_height;
 
-            // Maintain aspect ratio by fitting the canvas inside the window
-            if (window_aspect_ratio > domain_aspect_ratio) {
-                // Window is wider than domain - fit to height
-                canvas.height = window_height;
-                canvas.width = Math.ceil(window_height * domain_aspect_ratio / 64) * 64;
+            // Calculate dimensions if we fit to width
+            let width_by_width = available_width;
+            let height_by_width = width_by_width / domain_aspect_ratio;
+
+            // Calculate dimensions if we fit to height
+            let height_by_height = available_height;
+            let width_by_height = height_by_height * domain_aspect_ratio;
+
+            // Choose the option that fits within both constraints (use the smaller scale)
+            let canvas_width, canvas_height;
+            if (height_by_width <= available_height) {
+                // Fitting to width works - height doesn't exceed limit
+                canvas_width = Math.floor(width_by_width / 64) * 64;
+                canvas_height = Math.round(canvas_width / domain_aspect_ratio);
+                
+                // Double check after rounding
+                if (canvas_height > available_height) {
+                    canvas_height = Math.floor(available_height);
+                    canvas_width = Math.floor(canvas_height * domain_aspect_ratio / 64) * 64;
+                }
             } else {
-                // Window is taller than domain - fit to width
-                canvas.width = Math.ceil(window_width / 64) * 64;
-                canvas.height = Math.round(canvas.width / domain_aspect_ratio);
+                // Must fit to height - width would exceed if we fit to width
+                canvas_height = Math.floor(available_height);
+                canvas_width = Math.floor(canvas_height * domain_aspect_ratio / 64) * 64;
             }
+
+            canvas.width = canvas_width;
+            canvas.height = canvas_height;
         } else {
             // Set canvas size back to normal when exiting full screen
             if (grid_ratio >= 1.0) {
