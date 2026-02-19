@@ -41,6 +41,7 @@ struct Globals {
     stage_200: f32,
     stage_500: f32,
     river_inflow_angle: f32,
+    algochanges: i32,
 };
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -256,29 +257,50 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 
     // Sponge Layers
-    // west boundary
-    if (globals.west_boundary_type == 1 && idx.x <= 2 + (globals.BoundaryWidth)) {
-        BCState = WestBoundarySponge(idx);
+    var state_sum   = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    var weight_sum  = 0.0;
+
+    // west sponge
+    if (globals.west_boundary_type == 1 && idx.x <= 2 + globals.BoundaryWidth) {
+        let s = f32(globals.BoundaryWidth + 2 - idx.x) / f32(globals.BoundaryWidth);
+        let state_w = WestBoundarySponge(idx);
+        state_sum  = state_sum + s * state_w;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // east boundary
-    if (globals.east_boundary_type == 1 && idx.x >= globals.width - (globals.BoundaryWidth) - 1) {
-        BCState = EastBoundarySponge(idx, B_here);
+    // east sponge
+    if (globals.east_boundary_type == 1 && idx.x >= globals.width - globals.BoundaryWidth - 1) {
+        let s = f32(idx.x - (globals.width - globals.BoundaryWidth - 1)) / f32(globals.BoundaryWidth);
+        let state_e = EastBoundarySponge(idx, B_here);
+        state_sum  = state_sum + s * state_e;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // south boundary
-    if (globals.south_boundary_type == 1 && idx.y <= 2 + (globals.BoundaryWidth)) {
-        BCState = SouthBoundarySponge(idx);
+    // south sponge
+    if (globals.south_boundary_type == 1 && idx.y <= 2 + globals.BoundaryWidth) {
+        let s = f32(globals.BoundaryWidth + 2 - idx.y) / f32(globals.BoundaryWidth);
+        let state_s = SouthBoundarySponge(idx);
+        state_sum  = state_sum + s * state_s;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
 
-    // north boundary
-    if (globals.north_boundary_type == 1 && idx.y >= globals.height - (globals.BoundaryWidth) - 1) {
-        BCState = NorthBoundarySponge(idx);
+    // north sponge
+    if (globals.north_boundary_type == 1 && idx.y >= globals.height - globals.BoundaryWidth - 1) {
+        let s = f32(idx.y - (globals.height - globals.BoundaryWidth - 1)) / f32(globals.BoundaryWidth);
+        let state_n = NorthBoundarySponge(idx);
+        state_sum  = state_sum + s * state_n;
+        weight_sum = weight_sum + s;
         BCState_Sed = zero;
     }
+
+    // apply sponge if any side is active
+    if (weight_sum > 0.0) {
+        BCState = state_sum / weight_sum;
+    }
+
 
     // Solid Walls
     // west boundary
@@ -548,7 +570,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 BCState_Sed = zero;
             }
         }
-        else if (sum_dry == 1) {  // freeze end of single grid channel, with free surface gradient equal to zero
+        else if (sum_dry == 1 && globals.algochanges == 0) {  // freeze end of single grid channel, with free surface gradient equal to zero
             let wet_eta = (f32(dry_west)*eta_west + f32(dry_east)*eta_east + f32(dry_south)*eta_south + f32(dry_north)*eta_north) / f32(sum_dry);
             BCState = vec4<f32>(wet_eta, 0.0, 0.0, 0.0);
             BCState_Sed = zero;
