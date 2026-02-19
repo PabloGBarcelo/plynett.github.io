@@ -3174,25 +3174,37 @@ document.addEventListener('DOMContentLoaded', function () {
     function resizeCanvas() {
         
         let grid_ratio = calc_constants.dx / calc_constants.dy;
-        if (document.fullscreenElement) {
+        const isCanvasExpanded = document.body.classList.contains('canvas-expanded');
+        
+        if (document.fullscreenElement || isCanvasExpanded) {
             const window_width = window.innerWidth;
-            const window_height = window.innerHeight;
+            const window_height = isCanvasExpanded ? window.innerHeight * 0.8 : window.innerHeight; // 80vh for expanded mode
 
-            // canvas_width_ratio and height will be updated at render time
-            
-            canvas.width = window_width;
-            canvas.height = window_height;
+            // Calculate the aspect ratio of the simulation domain
+            const domain_aspect_ratio = (calc_constants.WIDTH * calc_constants.dx) / (calc_constants.HEIGHT * calc_constants.dy);
+            const window_aspect_ratio = window_width / window_height;
+
+            // Maintain aspect ratio by fitting the canvas inside the window
+            if (window_aspect_ratio > domain_aspect_ratio) {
+                // Window is wider than domain - fit to height
+                canvas.height = window_height;
+                canvas.width = Math.ceil(window_height * domain_aspect_ratio / 64) * 64;
+            } else {
+                // Window is taller than domain - fit to width
+                canvas.width = Math.ceil(window_width / 64) * 64;
+                canvas.height = Math.round(canvas.width / domain_aspect_ratio);
+            }
         } else {
             // Set canvas size back to normal when exiting full screen
             if (grid_ratio >= 1.0) {
                 canvas.width = Math.ceil(calc_constants.WIDTH/64*grid_ratio)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
-                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH);
                 calc_constants.canvas_width_ratio = 1/grid_ratio;
                 calc_constants.canvas_height_ratio = 1.0; 
             }
             else {
                 canvas.width = Math.ceil(calc_constants.WIDTH/64)*64;  // width needs to have a multiple of 256 bytes per row.  Data will have four channels (rgba), so mulitple os 256/4 = 64;
-                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH / grid_ratio);
+                canvas.height = Math.round(calc_constants.HEIGHT * canvas.width / calc_constants.WIDTH * grid_ratio);
                 calc_constants.canvas_width_ratio = grid_ratio;
                 calc_constants.canvas_height_ratio = 1.0; 
             }
