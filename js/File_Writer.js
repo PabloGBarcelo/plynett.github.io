@@ -1,72 +1,41 @@
 //File_Writer.js
 import { calc_constants } from './constants_load_calc.js';
-export async function readTextureData(device, src_texture, channel) {
-    // Create a buffer to hold the data read from the texture.
-    const bytesPerChannel = 4; // Since each channel is a 32-bit float
-    const channelsPerPixel = 4; // For RGBA data
-    const actualBytesPerRow = calc_constants.WIDTH * bytesPerChannel * channelsPerPixel; // 4 channels and 4 bytes per float
-    const requiredBytesPerRow = Math.ceil(actualBytesPerRow / 256) * 256;
-    const paddedFlatData = new Float32Array(calc_constants.HEIGHT * requiredBytesPerRow / 4);
 
-    const buffer = device.createBuffer({
-        size: paddedFlatData.byteLength,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        mappedAtCreation: true
-    });
+export async function readTextureData(device, src_texture, channel, buffer) {
+  const width = calc_constants.WIDTH;
+  const height = calc_constants.HEIGHT;
 
-    new Float32Array(buffer.getMappedRange()).set(paddedFlatData);
-    buffer.unmap();
+  const requiredBytesPerRow = Math.ceil((width * 4 * 4) / 256) * 256; // width * RGBA * f32, padded
+  const floatsPerRow = requiredBytesPerRow >> 2;
+  const chanOffset = channel - 1;
 
-    // Create a command encoder and copy the texture to the buffer.
-    const commandEncoder = device.createCommandEncoder();
-    commandEncoder.copyTextureToBuffer(
-        {
-            texture: src_texture,
-        },
-        {
-            buffer: buffer,
-            bytesPerRow: requiredBytesPerRow,
-            rowsPerImage: calc_constants.HEIGHT,
-        },
-        {
-            width: calc_constants.WIDTH,
-            height: calc_constants.HEIGHT,
-            depthOrArrayLayers: 1
-        },
-    );
+  const commandEncoder = device.createCommandEncoder();
+  commandEncoder.copyTextureToBuffer(
+    { texture: src_texture },
+    { buffer, bytesPerRow: requiredBytesPerRow, rowsPerImage: height },
+    { width, height, depthOrArrayLayers: 1 }
+  );
+  device.queue.submit([commandEncoder.finish()]);
 
-    // Submit the commands and wait for them to complete.
-    const queue = device.queue;
-    queue.submit([commandEncoder.finish()]);
-    await buffer.mapAsync(GPUMapMode.READ);
+  await buffer.mapAsync(GPUMapMode.READ);
 
-    // Get an array buffer view of the buffer data.
-    const arrayBuffer = buffer.getMappedRange();
+  const bufferData = new Float32Array(buffer.getMappedRange());
+  const flatData = new Float32Array(width * height);
 
-    // You could then convert the data as needed before saving, e.g., creating a Float32Array view on the data.
-    const Buffer_data = new Float32Array(arrayBuffer);
-
-    // Initialize the 1D array
-    let flatData = new Float32Array(calc_constants.WIDTH * calc_constants.HEIGHT);
-
-    // Extract data from Buffer_data into the 2D array, row by row, taking into account the padding and the 4 channels per pixel
-    for (let y = 0; y < calc_constants.HEIGHT; y++) {
-        for (let x = 0; x < calc_constants.WIDTH; x++) {
-
-            const paddedIndex = (y * requiredBytesPerRow / 4) + x * 4; // Adjust the index for padding
-            const realIndex = y * calc_constants.WIDTH + x; // Adjust the index for padding
-
-            flatData[realIndex] = Buffer_data[paddedIndex + channel - 1]; // red
-    //        data[x][y] = paddedFlatData[paddedIndex + 1];  // green
-    //        data[x][y] = paddedFlatData[paddedIndex + 2];  // blue
-    //        data[x][y] = paddedFlatData[paddedIndex + 3];  // alpha
-        }
+  for (let y = 0; y < height; y++) {
+    const rowBasePadded = y * floatsPerRow;
+    const rowBaseReal = y * width;
+    for (let x = 0; x < width; x++) {
+      flatData[rowBaseReal + x] = bufferData[rowBasePadded + (x << 2) + chanOffset];
     }
+  }
 
-    return flatData; // or whatever processed form you prefer
+  buffer.unmap();
+  return flatData;
 }
 
-// geotiff writer
+
+// geotiff writer  // not used needs updates to be used
 export async function downloadGeoTiffData(device, texture, channel,dx,dy) {
   // Assuming readTextureData returns an array or typed array of values
   const data = await readTextureData(device, texture, channel,dx,dy); // This should be compatible with the values expected by writeArrayBuffer
@@ -211,6 +180,9 @@ export async function saveRenderedImageAsJPEG(device, texture, width, height, ou
 
     // Make a copy of the buffer data immediately after mapping, to prevent "detached buffer" errors
     const bufferCopy = new Uint8ClampedArray(arrayBuffer.slice());
+    
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     // The buffer contains BGRA data, so we need to swap the red and blue channels for each pixel
     for (let i = 0; i < bufferCopy.length; i += 4) {
@@ -352,7 +324,9 @@ async function getFrameData(device, src_texture, width, height) {
 
     // Extract and process the buffer data
     const copyArrayBuffer = new Uint8Array(buffer.getMappedRange());
-    buffer.unmap();
+
+    buffer.unmap(); // Don't forget to unmap the buffer once done
+    buffer.destroy();  // free up memory
 
     // Format conversion from BGRA to RGBA (if necessary)
     const imageData = new Uint8ClampedArray(width * height * 4);
@@ -440,7 +414,9 @@ export async function saveTextureSlicesAsImages(device, texture, textureSize) {
         await buffer.mapAsync(GPUMapMode.READ);
         
         const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
-        buffer.unmap();
+
+        buffer.unmap(); // Don't forget to unmap the buffer once done
+        buffer.destroy();  // free up memory
 
         return arrayBuffer;
     }
@@ -506,7 +482,9 @@ export async function createAnimatedGifFromTexture(device, texture, textureSize)
         device.queue.submit([gpuCommands]);
         await buffer.mapAsync(GPUMapMode.READ);
         const arrayBuffer = new Uint8Array(buffer.getMappedRange()).slice();
-        buffer.unmap();
+
+        buffer.unmap(); // Don't forget to unmap the buffer once done
+        buffer.destroy();  // free up memory
 
         return arrayBuffer;
     }
@@ -550,14 +528,14 @@ export async function createAnimatedGifFromTexture(device, texture, textureSize)
     gif.render();
 }
 
-export async function writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities) {
+export async function writeSurfaceData(total_time,frame_count_output,device,txBottom,txState,txBreaking,txModelVelocities, buffer) {
 
     let time_filename = `time_${frame_count_output}.txt`;
     await saveSingleValueToFile(total_time,time_filename);
 
     if(frame_count_output == 1){
         let filename = `bathytopo.bin`;
-        await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txBottom, 3, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
 
         filename = `dx.txt`;
         await saveSingleValueToFile(calc_constants.dx,filename);
@@ -572,45 +550,45 @@ export async function writeSurfaceData(total_time,frame_count_output,device,txBo
         await saveSingleValueToFile(calc_constants.HEIGHT,filename);
     }
 
-    if(calc_constants.useSedTransModel ==1 || calc_constants.disturbanceType == 5){  // write depth if using sediment transport model or landslide
+    if(calc_constants.useSedTransModel ==1 || (total_time < 300.0 && calc_constants.disturbanceType == 5)){  // write depth if using sediment transport model or landslide
         let filename = `depth_${frame_count_output}.bin`;
-        await downloadTextureData(device, txBottom, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txBottom, 3, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_eta == 1){  // free surface elevation
         let filename = `elev_${frame_count_output}.bin`;
-        await downloadTextureData(device, txState, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txState, 1, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_P == 1){  // x-dir flux Hu
         let filename = `xflux_${frame_count_output}.bin`;
-        await downloadTextureData(device, txState, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txState, 2, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_Q == 1){  // y-dir flux Hv
         let filename = `yflux_${frame_count_output}.bin`;
-        await downloadTextureData(device, txState, 3, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txState, 3, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_u == 1){  // x-dir velocity u
         let filename = `xvelo_${frame_count_output}.bin`;
-        await downloadTextureData(device, txModelVelocities, 1, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txModelVelocities, 1, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
     if(calc_constants.write_v == 1){  // y-dir velocity v
         let filename = `yvelo_${frame_count_output}.bin`;
-        await downloadTextureData(device, txModelVelocities, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txModelVelocities, 2, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }    
 
     if(calc_constants.write_turb == 1){  // breaking eddy viscosity
         let filename = `turb_${frame_count_output}.bin`;
-        await downloadTextureData(device, txBreaking, 2, filename);  // number is the channel 1 = .r, 2 = .g, etc.
+        await downloadTextureData(device, txBreaking, 2, filename, buffer);  // number is the channel 1 = .r, 2 = .g, etc.
         await sleep(calc_constants.fileWritePause); // wait long enough for the download to start…
     }
 
@@ -618,9 +596,9 @@ export async function writeSurfaceData(total_time,frame_count_output,device,txBo
 }
 
 
-export async function downloadTextureData(device, texture, channel, filename) {
+export async function downloadTextureData(device, texture, channel, filename, buffer) {
     try {
-        const data = await readTextureData(device, texture, channel);
+        const data = await readTextureData(device, texture, channel, buffer);
 
         // Create a Blob from the data
         const blob = new Blob([data.buffer], { type: 'application/octet-stream' });
